@@ -2,7 +2,18 @@ width = document.body.clientWidth * 0.9
 height = document.body.clientHeight * 0.8
 
 color = d3.scale.category20()
-svg = d3.select("body").append("svg").attr("width", width).attr("height", height).append("g").attr("transform","translate(10,30)")
+svg = d3.select("body").append("svg")
+		.attr("width", width)
+		.attr("height", height)
+		.attr("id","viz")
+	.append("g")
+		.attr("transform","translate(10,30)")
+
+closeTooltip = null
+
+d3.select("body").on("mousemove",->
+	closeTooltip() if d3.event.target.id == "viz"
+)
 
 d3.json "deps.json", (json) ->
 
@@ -22,12 +33,11 @@ d3.json "deps.json", (json) ->
 	nodes.forEach (node) ->
 		node.deps.forEach (dep) ->
 			byId[dep] ||= {name: dep, deps: [], clients: []}
-			patron = byId[dep]
-		node.deps = node.deps.map (depName) -> 
+		node.deps = node.deps.map (depName) ->
 			dep= byId[depName]
 			dep.clients.push(byId[node.name])
 			if seenBefore[depName]
-				{name: dep.name}
+				{name: dep.name,deps:[],clients:[]}
 			else
 				seenBefore[depName] = true
 				dep
@@ -74,21 +84,27 @@ d3.json "deps.json", (json) ->
 				.attr("id","tooltip")
 				.attr("class","pane")
 
-			enteringTooltip.append("h3")
-			enteringTooltip.append("h4")
+			enteringTooltip.append("h3").attr("class","node-name")
+			enteringTooltip.append("h4").attr("class","clients")
 
-			tt.select("h3")
+			tt.select(".node-name")
 				.text((d) -> d.node.name )
+				.on("click",(d) -> draw d.node.name )
 
-			tt.select("h4")
-				.text((d) -> clientCount = (byId[d.node.name].clients || []).length; return "No clients" if clientCount == 0; "Called by #{clientCount}")
-
-			enteringTooltip.append("ul")
+			tt.select(".clients")
+				.text((d) ->
+					clientCount = (byId[d.node.name].clients || []).length
+					return "No clients" if clientCount == 0
+					"Called by #{clientCount}"
+				)
 
 			tt.style("left",(d) -> d.left || d3.select(this).attr("left"))
 				.style("top",(d) -> d.top || d3.select(this).attr("top"))
 				.transition()
 					.style("opacity",(d) -> return 1 if d.shown; 0 )
+
+
+			enteringTooltip.append("ul")
 
 			clients = tt
 				.selectAll("li")
@@ -104,6 +120,11 @@ d3.json "deps.json", (json) ->
 
 			clients.exit()
 				.remove()
+
+			enteringTooltip.append("h4")
+
+		closeTooltip = ->
+			d3.select("#tooltip").style("opacity",0)
 
 		nodes = svg.selectAll(".node")
 			.data(fromMain)
@@ -124,10 +145,9 @@ d3.json "deps.json", (json) ->
 					tooltip([{top: bounding.top + 10, left: bounding.left, node: node, shown: true}])
 				)
 				.on("mouseout",->
-					setTimeout =>
-						d3.select(this).select("text").transition().attr("opacity",0)
-						d3.select("#tooltip").style("opacity",0)
-					, 10000
+          return if d3.event.toElement.id == "tooltip"
+          d3.select(this).select("text").transition().attr("opacity",0)
+					closeTooltip()
 				)
 		
 		nodesEnter.append("circle")
