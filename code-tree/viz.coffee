@@ -15,6 +15,7 @@ d3.select("body").on("mousemove",->
 	closeTooltip() if d3.event.target.id == "viz"
 )
 
+
 d3.json "deps.json", (json) ->
 
 	nodes = Object.keys(json).map((k) ->
@@ -37,10 +38,16 @@ d3.json "deps.json", (json) ->
 			dep= byId[depName]
 			dep.clients.push(byId[node.name])
 			if seenBefore[depName]
-				{name: dep.name,deps:[],clients:[]}
+				Object.keys(dep).reduce (h,k) ->
+					h[k] = dep[k] unless k == "deps"
+					h
+				, {deps: []}
 			else
 				seenBefore[depName] = true
 				dep
+
+	clientCounts = d3.values(byId).map (node) -> node.clients.length
+	importanceScale = d3.scale.linear().domain(d3.extent(clientCounts)).range(["#000000","#ff0000"])
 
 	tree = d3.layout.tree()
 	tree.children (node) -> node.deps
@@ -125,6 +132,7 @@ d3.json "deps.json", (json) ->
 
 		closeTooltip = ->
 			d3.select("#tooltip").style("opacity",0)
+			svg.selectAll(".on").classed("on",false)
 
 		nodes = svg.selectAll(".node")
 			.data(fromMain)
@@ -139,10 +147,13 @@ d3.json "deps.json", (json) ->
 					"translate(#{d.x},#{d.y})"
 				)
 				.attr("class","node")
+				.attr("data-module",(d) -> d.name)
 				.on("mouseover", (node) ->
+					closeTooltip()
 					bounding = this.getBoundingClientRect()
 					d3.select(this).select("text").transition().attr("opacity",1)
 					tooltip([{top: bounding.top + 10, left: bounding.left, node: node, shown: true}])
+					svg.selectAll("[data-module='#{node.name}']").classed("on",true)
 				)
 				.on("mouseout",->
           return if d3.event.toElement.id == "tooltip"
@@ -152,7 +163,9 @@ d3.json "deps.json", (json) ->
 		
 		nodesEnter.append("circle")
 			.attr("r",5)
-			.style("fill","red")
+			.style("fill",(d) ->
+				importanceScale d.clients.length
+			)
 
 		nodesEnter
 			.append("text")

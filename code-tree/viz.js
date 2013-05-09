@@ -19,7 +19,7 @@
   });
 
   d3.json("deps.json", function(json) {
-    var byId, draw, link, nodes, seenBefore, tree, xScale, yScale;
+    var byId, clientCounts, draw, importanceScale, link, nodes, seenBefore, tree, xScale, yScale;
     nodes = Object.keys(json).map(function(k) {
       var deps;
       deps = json[k];
@@ -47,17 +47,24 @@
         dep = byId[depName];
         dep.clients.push(byId[node.name]);
         if (seenBefore[depName]) {
-          return {
-            name: dep.name,
-            deps: [],
-            clients: []
-          };
+          return Object.keys(dep).reduce(function(h, k) {
+            if (k !== "deps") {
+              h[k] = dep[k];
+            }
+            return h;
+          }, {
+            deps: []
+          });
         } else {
           seenBefore[depName] = true;
           return dep;
         }
       });
     });
+    clientCounts = d3.values(byId).map(function(node) {
+      return node.clients.length;
+    });
+    importanceScale = d3.scale.linear().domain(d3.extent(clientCounts)).range(["#000000", "#ff0000"]);
     tree = d3.layout.tree();
     tree.children(function(node) {
       return node.deps;
@@ -120,17 +127,21 @@
         return enteringTooltip.append("h4");
       };
       closeTooltip = function() {
-        return d3.select("#tooltip").style("opacity", 0);
+        d3.select("#tooltip").style("opacity", 0);
+        return svg.selectAll(".on").classed("on", false);
       };
       nodes = svg.selectAll(".node").data(fromMain);
       nodes.exit().remove();
       nodesEnter = nodes.enter().append("g").attr("transform", function(d) {
         return "translate(" + d.x + "," + d.y + ")";
-      }).attr("class", "node").on("mouseover", function(node) {
+      }).attr("class", "node").attr("data-module", function(d) {
+        return d.name;
+      }).on("mouseover", function(node) {
         var bounding;
+        closeTooltip();
         bounding = this.getBoundingClientRect();
         d3.select(this).select("text").transition().attr("opacity", 1);
-        return tooltip([
+        tooltip([
           {
             top: bounding.top + 10,
             left: bounding.left,
@@ -138,13 +149,16 @@
             shown: true
           }
         ]);
+        return svg.selectAll("[data-module='" + node.name + "']").classed("on", true);
       }).on("mouseout", function() {
         if (d3.event.toElement.id === "tooltip") {
           return;
         }
         return d3.select(this).select("text").transition().attr("opacity", 0);
       }, closeTooltip());
-      nodesEnter.append("circle").attr("r", 5).style("fill", "red");
+      nodesEnter.append("circle").attr("r", 5).style("fill", function(d) {
+        return importanceScale(d.clients.length);
+      });
       return nodesEnter.append("text").attr("opacity", 0).attr("transform", function(d) {
         var bounding;
         bounding = this.getBoundingClientRect();
