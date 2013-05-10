@@ -114,6 +114,7 @@ d3.json "deps.json", (json) ->
 			enteringTooltip.append("ul")
 
 			clients = tt
+				.select("ul")
 				.selectAll("li")
 				.data((d) -> byId[d.node.name].clients || [])
 				.on("click",(d) ->
@@ -127,8 +128,6 @@ d3.json "deps.json", (json) ->
 
 			clients.exit()
 				.remove()
-
-			enteringTooltip.append("h4")
 
 		closeTooltip = ->
 			d3.select("#tooltip").style("opacity",0)

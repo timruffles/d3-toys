@@ -114,7 +114,7 @@
           return 0;
         });
         enteringTooltip.append("ul");
-        clients = tt.selectAll("li").data(function(d) {
+        clients = tt.select("ul").selectAll("li").data(function(d) {
           return byId[d.node.name].clients || [];
         }).on("click", function(d) {
           return draw(d.name);
@@ -123,8 +123,7 @@
         clients.text(function(d) {
           return d.name || d;
         });
-        clients.exit().remove();
-        return enteringTooltip.append("h4");
+        return clients.exit().remove();
       };
       closeTooltip = function() {
         d3.select("#tooltip").style("opacity", 0);
